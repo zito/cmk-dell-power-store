@@ -137,7 +137,7 @@ class DPSSession(Session):
 
         self._rest_api_url = f"https://{address}:{port}/api/rest"
         self.headers.update({
-            #"Content-Type": 'text/xml; charset="utf-8"',
+            "Accept": "application/json",
             "User-Agent": "Checkmk special agent for Dell PowerStore",
         })
         if user is not None and secret is not None:
@@ -146,7 +146,22 @@ class DPSSession(Session):
     def query_get(self, urlsubd, **kwargs):
         response = self.get(self._rest_api_url + '/' + urlsubd, **kwargs, verify=self.verify)
         if response.status_code == 200:
-            return response
+            return response.json()
+        if response.status_code == 206:
+            json1 = response.json()
+            crange = response.headers['Content-Range']
+            crd, clen = crange.split('/', 1)
+            istart, iend = crd.split('-', 1)
+            clen = int(clen)
+            istart = int(istart)
+            iend = int(iend)
+            inext = iend +1
+            if inext < clen:
+                hdr = kwargs.get('headers', {})
+                hdr["Range"] = f"{inext}-"
+                kwargs['headers'] = hdr
+                json1.extend(self.query_get(urlsubd, **kwargs))
+            return json1
         if response.status_code == 401:
             raise DPSUnauthorized("401 Unauthorized")
         if response.status_code == 403:
@@ -168,17 +183,19 @@ class DPSSession(Session):
 def get_information(s: DPSSession, args: Args):
     """get an information from the REST API interface"""
 
-    r = s.query_get('openapi.json')
-    ainfo = r.json()['info']
+    ainfo = s.query_get('openapi.json')['info']
     with SectionWriter("check_mk", " ") as w:
         w.append("Version: 2.0")
         w.append(f"AgentOS: {ainfo['title']} {ainfo['version']}")
 
     with SectionWriter("appliance") as w:
-        w.append(s.query_get('appliance?select=*').text)
+        w.append_json(s.query_get('appliance?select=*'))
 
     with SectionWriter("hardware") as w:
-        w.append(s.query_get('hardware?select=*').text)
+        w.append_json(s.query_get('hardware?select=*'))
+
+    with SectionWriter("volume") as w:
+        w.append_json(s.query_get('volume?select=*'))
 
     return 0
 
