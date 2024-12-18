@@ -6,6 +6,7 @@
 
 from cmk.rulesets.v1 import Title, Help
 from cmk.rulesets.v1.form_specs import (
+    BooleanChoice,
     DefaultValue,
     DictElement,
     Dictionary,
@@ -44,6 +45,13 @@ def _valuespec_special_agent_dell_powerstore() -> Dictionary:
                     ),
                     prefill=DefaultValue(443),
                     custom_validate=(validators.NumberInRange(min_value=1, max_value=65535),),
+                ),
+            ),
+            "cert_check": DictElement(
+                required=True,
+                parameter_form=BooleanChoice(
+                    title=Title("Check SSL certificate"),
+                    prefill=DefaultValue(True),
                 ),
             ),
             "timeout": DictElement(

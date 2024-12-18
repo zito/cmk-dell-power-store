@@ -19,6 +19,7 @@ class Params(BaseModel):
     """params validator"""
     user: str | None = None
     password: Secret | None = None
+    cert_check: bool
     port: int | None = None
     timeout: int | None = None
 
@@ -35,6 +36,8 @@ def _agent_dell_powerstore_arguments(
         command_arguments += ["-p", str(params.port)]
     if params.timeout is not None:
         command_arguments += ["-t", str(params.timeout)]
+    if not params.cert_check:
+        command_arguments += ["--no-cert-check"]
     command_arguments.append(host_config.primary_ip_config.address or host_config.name)
     yield SpecialAgentCommand(command_arguments=command_arguments)
 
