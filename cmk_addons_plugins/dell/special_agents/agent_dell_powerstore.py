@@ -143,8 +143,11 @@ class DPSSession(Session):
         if user is not None and secret is not None:
             self.auth = HTTPBasicAuth(user, secret)
 
-    def query_get(self, urlsubd, **kwargs):
-        response = self.get(self._rest_api_url + '/' + urlsubd, **kwargs, verify=self.verify)
+    def query(self, method, urlsubd, **kwargs):
+        if hasattr(self, 'csrf_token'):
+            kwargs.setdefault('headers', {})['DELL-EMC-TOKEN'] = self.csrf_token
+        response = method(self._rest_api_url + '/' + urlsubd, **kwargs, verify=self.verify)
+        self.csrf_token = response.headers['DELL-EMC-TOKEN']
         if response.status_code == 200:
             return response.json()
         if response.status_code == 206:
@@ -168,6 +171,12 @@ class DPSSession(Session):
             raise DPSForbidden("403 Forbidden")
         raise DPSUndecoded(f"{response.status_code} Undecoded status code")
 
+    def query_get(self, urlsubd, **kwargs):
+        return self.query(self.get, urlsubd, **kwargs)
+
+    def query_post_json(self, urlsubd, json, **kwargs):
+        return self.query(self.post, urlsubd, json=json, **kwargs)
+
 
 #.
 #   .--unsorted------------------------------------------------------------.
@@ -188,14 +197,35 @@ def get_information(s: DPSSession, args: Args):
         w.append("Version: 2.0")
         w.append(f"AgentOS: {ainfo['title']} {ainfo['version']}")
 
+    appliance = s.query_get('appliance?select=*')
     with SectionWriter("appliance") as w:
-        w.append_json(s.query_get('appliance?select=*'))
+        w.append_json(appliance)
 
     with SectionWriter("hardware") as w:
         w.append_json(s.query_get('hardware?select=*'))
 
     with SectionWriter("volume") as w:
         w.append_json(s.query_get('volume?select=*'))
+
+#    with SectionWriter("performance_metrics_by_appliance") as w:
+#        d = []
+#        for app in appliance:
+#            d.append(s.query_post_json('metrics/generate', {
+#                      "entity": "performance_metrics_by_appliance",
+#                      "entity_id": app['id'],
+#                      "interval": "Best_Available"
+#                    })[-1])
+#        w.append_json(d)
+
+    with SectionWriter("space_metrics_by_appliance") as w:
+        d = []
+        for app in appliance:
+            d.append(s.query_post_json('metrics/generate', {
+                      "entity": "space_metrics_by_appliance",
+                      "entity_id": app['id'],
+                      "interval": "Best_Available"
+                    })[-1])
+        w.append_json(d)
 
     return 0
 

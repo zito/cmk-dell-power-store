@@ -36,8 +36,6 @@ def discovery_dell_powerstore_appliance(
 def check_dell_powerstore_appliance(
         item, section: DellPowerStoreAPIData
         ) -> CheckResult:
-    info = []
-    errs = []
     idmap = dict([(item.get("id"), item) for item in section])
     if item in idmap:
         d = idmap[item]

@@ -36,7 +36,7 @@ def discovery_dell_powerstore_volume(
     for d in section:
         if d["type"] == "Primary":
             item = d["appliance_id"] + " " + d["name"]
-            yield Service(item=item, parameters={'id':d["id"]})
+            yield Service(item=item)
 
 
 def check_dell_powerstore_volume(
@@ -44,11 +44,12 @@ def check_dell_powerstore_volume(
         params: list[str],
         section: DellPowerStoreAPIData
         ) -> CheckResult:
+    app_id, vol_name = item.split(" ", maxsplit=1)
     for d in section:
-        if d["id"] == params["id"]:
+        if d["name"] == vol_name:
             break
     else:
-        yield Result(state=State.UNKNOWN, summary=f"volume id {params['id']} not found")
+        yield Result(state=State.UNKNOWN, summary=f"volume id {vol_name} not found")
 
     used = d["logical_used"]
     size = d["size"]
